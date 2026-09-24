@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>rbro Marketplace</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-bg: rgba(88,166,255,0.12);
+    --tag-bg: #21262d;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #ffffff;
+      --panel: #f6f8fa;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --muted: #59636e;
+      --accent: #0969da;
+      --accent-bg: rgba(9,105,218,0.08);
+      --tag-bg: #eaeef2;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 40px 24px 24px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  header h1 {
+    font-size: 28px;
+    margin: 0 0 8px;
+  }
+  header p {
+    color: var(--muted);
+    margin: 0 0 16px;
+    max-width: 640px;
+    line-height: 1.5;
+  }
+  .install-cmd {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .install-cmd button {
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 60px;
+  }
+  #search {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  #status {
+    color: var(--muted);
+    font-size: 14px;
+    padding: 20px 0;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .card h3 {
+    margin: 0;
+    font-size: 16px;
+  }
+  .card .desc {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+    flex-grow: 1;
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .tag {
+    background: var(--tag-bg);
+    color: var(--muted);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+  .tag.mcp { color: var(--accent); background: var(--accent-bg); border-color: transparent; }
+  .card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+  .card-footer code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--tag-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  a.repo-link {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  a.repo-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<header>
+  <h1>rbro Marketplace</h1>
+  <p>A personal marketplace of Claude Code plugins &mdash; skills, agents, and MCP servers &mdash; installable directly via the <code>/plugin</code> command. Browse what's available below, or view the source on <a class="repo-link" href="https://github.com/robbertbrouwers/marketplace" target="_blank" rel="noopener">GitHub</a>.</p>
+  <div class="install-cmd">
+    <span id="install-text">/plugin marketplace add robbertbrouwers/marketplace</span>
+    <button onclick="navigator.clipboard.writeText(document.getElementById('install-text').textContent)">Copy</button>
+  </div>
+</header>
+<main>
+  <input id="search" type="text" placeholder="Search plugins by name, description, or tag...">
+  <div id="status">Loading plugins&hellip;</div>
+  <div class="grid" id="grid"></div>
+</main>
+<script>
+  const OWNER = "robbertbrouwers";
+  const REPO = "marketplace";
+  const BRANCH = "master";
+  const RAW_BASE = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}`;
+  const API_BASE = `https://api.github.com/repos/${OWNER}/${REPO}`;
+
+  const gridEl = document.getElementById("grid");
+  const statusEl = document.getElementById("status");
+  const searchEl = document.getElementById("search");
+
+  let allPlugins = [];
+
+  async function fetchJson(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${res.status} ${url}`);
+    return res.json();
+  }
+
+  async function listDir(path) {
+    try {
+      return await fetchJson(`${API_BASE}/contents/${path}?ref=${BRANCH}`);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function loadPlugin(entry) {
+    const source = (entry.source || "").replace(/^\.\//, "");
+    const base = `${RAW_BASE}/${source}`;
+    let manifest = {};
+    try {
+      manifest = await fetchJson(`${base}/.claude-plugin/plugin.json`);
+    } catch (e) {
+      manifest = {};
+    }
+
+    const tags = [];
+    const skillsDir = await listDir(`${source}/skills`);
+    if (Array.isArray(skillsDir) && skillsDir.length) {
+      tags.push(...skillsDir.filter(f => f.type === "dir").map(f => ({ label: f.name, kind: "skill" })));
+    }
+    const agentsDir = await listDir(`${source}/agents`);
+    if (Array.isArray(agentsDir) && agentsDir.length) {
+      tags.push(...agentsDir.map(f => ({ label: f.name.replace(/\.md$/, ""), kind: "agent" })));
+    }
+    const commandsDir = await listDir(`${source}/commands`);
+    if (Array.isArray(commandsDir) && commandsDir.length) {
+      tags.push(...commandsDir.map(f => ({ label: f.name.replace(/\.md$/, ""), kind: "command" })));
+    }
+    let hasMcp = false;
+    try {
+      const mcpConfig = await fetchJson(`${base}/.mcp.json`);
+      if (mcpConfig && mcpConfig.mcpServers) {
+        hasMcp = true;
+        tags.push(...Object.keys(mcpConfig.mcpServers).map(name => ({ label: name, kind: "mcp" })));
+      }
+    } catch (e) { /* no mcp config */ }
+
+    return {
+      name: entry.name,
+      description: entry.description || manifest.description || "",
+      version: manifest.version || "",
+      author: (manifest.author && manifest.author.name) || "",
+      source,
+      tags,
+      hasMcp,
+    };
+  }
+
+  function renderCard(p) {
+    const card = document.createElement("div");
+    card.className = "card";
+    const tagsHtml = p.tags.length
+      ? `<div class="tags">${p.tags.map(t => `<span class="tag${t.kind === "mcp" ? " mcp" : ""}">${t.kind}: ${escapeHtml(t.label)}</span>`).join("")}</div>`
+      : "";
+    card.innerHTML = `
+      <h3>${escapeHtml(p.name)}</h3>
+      <div class="desc">${escapeHtml(p.description || "No description provided.")}</div>
+      ${tagsHtml}
+      <div class="card-footer">
+        <span>${p.version ? "v" + escapeHtml(p.version) : ""}${p.author ? " &middot; " + escapeHtml(p.author) : ""}</span>
+        <a class="repo-link" href="https://github.com/${OWNER}/${REPO}/tree/${BRANCH}/${p.source}" target="_blank" rel="noopener">source</a>
+      </div>
+      <div class="card-footer" style="border-top:none;padding-top:0;">
+        <code>/plugin install ${escapeHtml(p.name)}@rbro-marketplace</code>
+      </div>
+    `;
+    return card;
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  function render(list) {
+    gridEl.innerHTML = "";
+    if (!list.length) {
+      statusEl.textContent = "No plugins match your search.";
+      statusEl.style.display = "block";
+      return;
+    }
+    statusEl.style.display = "none";
+    list.forEach(p => gridEl.appendChild(renderCard(p)));
+  }
+
+  searchEl.addEventListener("input", () => {
+    const q = searchEl.value.toLowerCase();
+    const filtered = allPlugins.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.description || "").toLowerCase().includes(q) ||
+      p.tags.some(t => t.label.toLowerCase().includes(q))
+    );
+    render(filtered);
+  });
+
+  (async function init() {
+    try {
+      const marketplace = await fetchJson(`${RAW_BASE}/.claude-plugin/marketplace.json`);
+      const entries = marketplace.plugins || [];
+      allPlugins = await Promise.all(entries.map(loadPlugin));
+      render(allPlugins);
+    } catch (e) {
+      statusEl.textContent = "Failed to load marketplace data: " + e.message;
+    }
+  })();
+</script>
+</body>
+</html>
