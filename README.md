@@ -7,10 +7,8 @@ A personal marketplace of Claude Code plugins — skills, agents, and MCP server
 In Claude Code, run:
 
 ```
-/plugin marketplace add rbro/marketplace
+/plugin marketplace add robbertbrouwers/marketplace
 ```
-
-(replace `rbro` with your actual GitHub username/org once published)
 
 Then browse and install plugins:
 
