@@ -1,0 +1,18 @@
+{
+  "name": "rbro-marketplace",
+  "owner": {
+    "name": "rbro",
+    "email": "rbro@inspari.dk"
+  },
+  "metadata": {
+    "description": "Personal marketplace of Claude Code plugins (skills, agents, MCP servers).",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "example-plugin",
+      "source": "./plugins/example-plugin",
+      "description": "Example plugin demonstrating a skill and an MCP server entry."
+    }
+  ]
+}

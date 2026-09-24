@@ -1,0 +1,9 @@
+{
+  "name": "example-plugin",
+  "version": "0.1.0",
+  "description": "Example plugin with a sample skill and an optional MCP server.",
+  "author": {
+    "name": "rbro",
+    "email": "rbro@inspari.dk"
+  }
+}
